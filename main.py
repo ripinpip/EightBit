@@ -1,10 +1,10 @@
 import gc
+import math
 
 import pygame
 import random
-from pygame import KEYDOWN, K_ESCAPE, K_w, K_a, K_s, K_d, K_q, RLEACCEL, K_r, K_e, K_BACKSPACE, K_z, K_c
+from pygame import KEYDOWN, K_ESCAPE, K_w, K_a, K_s, K_d, K_q, RLEACCEL, K_r, K_e, K_BACKSPACE, K_z, K_c, K_TAB, K_LCTRL
 
-pygame.init()
 screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
 
 spriteImages = ["sprites/apple.png", "sprites/heart.png", "sprites/icecream.png", "sprites/money.png", "sprites/music"
@@ -67,7 +67,6 @@ musicSmallImages = {0: musicSmallImage}
 musicSmallRect = musicSmallImage.get_rect()
 
 for angle in range(1, 360):
-
     appleSmallImages[angle] = pygame.transform.rotate(appleSmallImage, angle)
 
     heartSmallImages[angle] = pygame.transform.rotate(heartSmallImage, angle)
@@ -80,6 +79,16 @@ for angle in range(1, 360):
 
 
 class Icon(pygame.sprite.Sprite):
+
+    def autoMode(self):
+        self.rect.center = calculateNewXY(self.rect.center[0], self.rect.center[1], self.speed, self.direction)
+
+        self.angle = (self.angle + self.rotationSpeed) % 360.0
+        try:
+            self.image = pygame.transform.scale(self.images[int(self.angle)], (self.width, self.height))
+        except KeyError:
+            pass
+
     def updatePos(self, key):
 
         if key[K_w]:
@@ -100,7 +109,6 @@ class Icon(pygame.sprite.Sprite):
                 self.image = pygame.transform.scale(self.images[int(self.angle)], (self.width, self.height))
             except KeyError:
                 pass
-
 
         if key[K_c]:
             self.angle = (self.angle - self.rotationSpeed) % 360.0
@@ -138,16 +146,56 @@ class Icon(pygame.sprite.Sprite):
         rotationalSpeedOptions = [0.2, 0.3, 0.4, 0.5, 0.6]
         self.rotationSpeed = rotationalSpeedOptions[random.randint(0, 4)]
 
+        self.direction = random.randint(1, 360) * 180 / math.pi
+
+
+class InstructionsSprite(pygame.sprite.Sprite):
+
+    def __init__(self):
+        super(InstructionsSprite, self).__init__()
+
+        self.image = pygame.image.load("sprites/controls.png").convert()
+
+        self.width = 494
+        self.height = 590
+
+        self.scaled = pygame.transform.scale(self.image, (self.width, self.height))
+        self.image = self.scaled
+
+        # sets the transparency of a color
+        self.scaled.set_colorkey((0, 0, 0), RLEACCEL)
+
+        self.rect = self.scaled.get_rect(
+            bottomleft=(
+                screen.get_rect().bottomleft
+            )
+        )
+
 
 def getWindowSize():
     (width, height) = pygame.display.get_surface().get_size()
     return width, height
 
 
+def calculateNewXY(x, y, speed, angleInRads):
+    newX = x + (speed * math.cos(angleInRads))
+    newY = y + (speed * math.sin(angleInRads))
+    return newX, newY
+
+
 allSprites = pygame.sprite.Group()
 
 running = True
 dragMode = False
+autoMode = False
+instructions = True
+
+instructionsSprite = InstructionsSprite()
+
+pygame.init()
+
+pygame.time.set_timer(pygame.USEREVENT, 250)
+clock = pygame.time.Clock()
 
 # where game starts running
 while running:
@@ -193,18 +241,53 @@ while running:
                 else:
                     dragMode = True
 
+            # TAB turns on auto mode
+            if event.key == K_TAB:
+
+                if autoMode:
+                    autoMode = False
+                else:
+                    autoMode = True
+
+            # L CTRL turns on the instructions
+            if event.key == K_LCTRL:
+
+                if instructions:
+                    instructions = False
+                else:
+                    instructions = True
+
         if event.type == pygame.QUIT:
             running = False
+
+        if event.type == pygame.USEREVENT:
+            if autoMode:
+                if len(allSprites) > 25:
+                    allSprites.remove(allSprites.sprites()[0])
+
+                newSprite = Icon()
+                allSprites.add(newSprite)
 
     if not dragMode:
         screen.fill((0, 0, 0))
 
-    pressed_keys = pygame.key.get_pressed()
+    if autoMode:
+        for entity in allSprites:
+            entity.autoMode()
+            screen.blit(entity.image, entity.rect)
+    else:
+        pressed_keys = pygame.key.get_pressed()
 
-    for entity in allSprites:
-        entity.updatePos(pressed_keys)
-        screen.blit(entity.image, entity.rect)
+        for entity in allSprites:
+            entity.updatePos(pressed_keys)
+            screen.blit(entity.image, entity.rect)
+
+    if instructions:
+        screen.blit(instructionsSprite.image, instructionsSprite.rect)
+    else:
+        instructionsSprite.kill()
 
     pygame.display.flip()
 
     gc.collect()
+    clock.tick(60)
