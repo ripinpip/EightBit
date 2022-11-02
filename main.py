@@ -156,8 +156,8 @@ class InstructionsSprite(pygame.sprite.Sprite):
 
         self.image = pygame.image.load("sprites/controls.png").convert()
 
-        self.width = 494
-        self.height = 590
+        self.width = 494 / 1.2
+        self.height = 590 / 1.2
 
         self.scaled = pygame.transform.scale(self.image, (self.width, self.height))
         self.image = self.scaled
